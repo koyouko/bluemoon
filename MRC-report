@@ -1,0 +1,81 @@
+Assessment Report: Confluent MRC Setup Design
+
+Date: Sept 9, 2024
+
+Prepared By: Rajeev
+
+1. Introduction
+This report assesses the current Confluent MRC (Multi-Region Cluster) setup across three data centers (DC1, DC2, and DC3) and examines the impact of the existing architecture on performance and reliability. It also evaluates the necessity and effectiveness of the current MRC design, proposing alternatives where appropriate.
+
+2. Current Architecture Overview
+The existing MRC setup involves:
+
+Cluster Configuration: 8-node cluster with a 2.5 architecture design.
+Data Centers:
+DC1: Primary data center hosting brokers.
+DC2: Secondary data center hosting brokers.
+DC3: Data center hosting the tier breaker Zookeeper.
+3. Current Replica Configuration
+Configuration:
+
+Total Replicas: 8
+Sync Replicas: 4 hosted on DC1 (Primary Data Center)
+In-Sync Replicas (Observers): 4 hosted on DC2 (Secondary Data Center)
+4. Identified Issues
+Network Latency and Disconnection:
+
+Issue: Frequent network disconnections between DC1 and DC2 are causing high latency.
+Impact: Affects the responsiveness and performance of the cluster.
+Topic Leadership and Replication:
+
+Issue: The configuration results in topics with unclean leader elections.
+Impact: Leads to data inconsistency and potential data loss during failovers or network partitions.
+Zookeeper Latency:
+
+Issue: Hosting the tier breaker Zookeeper in DC3 introduces additional latency and communication challenges.
+Impact: Affects leader elections and overall cluster coordination.
+5. Analysis of Findings
+The current MRC design has several critical issues related to the placement of observer replicas in DC2, creating significant reliance on the network connection between DC1 and DC2. This dependency impacts overall performance and reliability as follows:
+
+Observer Replicas and Network Reliance:
+
+Increased Latency:
+
+Description: Observer replicas in DC2 track changes and support failover, but their location in a different data center from the sync replicas in DC1 means that network latency between DC1 and DC2 directly affects data synchronization speed.
+Consequence: Increased latency delays data updates across the cluster, reducing timeliness and responsiveness and impacting system performance.
+Network Partition Sensitivity:
+
+Description: The reliance on network connectivity makes the system vulnerable to network partitions between DC1 and DC2. If a partition occurs, observer replicas in DC2 may become inconsistent with sync replicas in DC1.
+Consequence: Network partitions can lead to replication lag and potential data loss, complicating data consistency and system reliability. This can result in unclean leader elections and degraded cluster performance.
+Impact on Leader Election:
+
+Description: Leader election requires communication among all replicas, including observers. Network disruptions between DC1 and DC2 can hinder the leader election process.
+Consequence: Disruptions may lead to prolonged periods without a leader, affecting partition availability and causing instability in the cluster.
+Increased Complexity in Data Replication:
+
+Description: Frequent data transmission over the network between DC1 and DC2 is required for replication. Observer replicas in DC2 must stay in sync with sync replicas in DC1, creating a dependency on a stable network connection.
+Consequence: Network instability or latency can cause replication delays, impacting data consistency and adding complexity to managing synchronization across data centers.
+6. Recommendations
+Reconfigure Replica Placement:
+
+Suggestion: Distribute sync replicas more evenly across data centers. For example, consider having 2 sync replicas and 1 observer replica in each data center, with a minimum in-sync replicas (min-ISR) setting of 3.
+Benefit: Reduces reliance on a single data center for replication and enhances fault tolerance. This approach balances the load and mitigates the impact of network issues by spreading the replica load more evenly.
+Enhance Network Resilience:
+
+Suggestion: Improve network connectivity and redundancy between DC1 and DC2 to minimize latency and potential disconnections.
+Benefit: Enhances overall cluster reliability and performance during network disruptions.
+Optimize Zookeeper Placement:
+
+Suggestion: Relocate the Zookeeper leader to either DC1 or DC2, where the Kafka brokers are hosted. This adjustment will reduce latency and improve communication efficiency.
+Benefit: Enhances cluster coordination and leader election processes by minimizing latency and improving the efficiency of Zookeeper communication.
+Monitor and Adjust Replication Settings:
+
+Suggestion: Regularly monitor replication lag and adjust configurations as necessary to ensure optimal performance.
+Benefit: Prevents issues related to unclean leader elections and maintains data consistency.
+Zookeeper Leader Placement:
+
+Recommendation: Ensure that the Zookeeper leader is located in either DC1 or DC2. This placement will help in reducing latency and improving the efficiency of Zookeeper coordination with Kafka brokers.
+Benefit: Improves the overall stability and performance of the Kafka cluster by ensuring efficient leader election and coordination processes.
+7. Conclusion
+The current Confluent MRC setup design exhibits several critical issues related to the placement of observer replicas and Zookeeper. Addressing these issues by redistributing replicas, enhancing network resilience, and relocating Zookeeper will improve the reliability and performance of the cluster. Continuous monitoring and adjustments will be essential to maintaining a stable and efficient setup.
+
